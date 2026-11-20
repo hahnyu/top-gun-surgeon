@@ -42,7 +42,7 @@ export async function play({ skill = 'kid', maxTime = 300 } = {}) {
   };
   const res = { drill: d.constructor.name, level: d.level, attempts: 0, fails: 0, reasons: {} };
   const oe = d.ctx.emit; d.ctx.emit = (ty, x) => { if (ty === 'grab') (res.grabT = res.grabT || []).push(+T.toFixed(1)); if (ty === 'error') { res.reasons[x?.reason] = (res.reasons[x?.reason] || 0) + 1; (res.errT = res.errT || []).push(`${T.toFixed(1)} ${x?.reason} reps=${d.success}`); } oe?.(ty, x); };
-  d.started = true;
+  if (window.__tg?.phase !== 'armed') d.started = true; // a real run (countdown done) starts itself
   try {
     if (d.constructor.name === 'PeaDrill') {
       const t = d.tools[0];
@@ -172,7 +172,7 @@ export async function playAssisted({ maxTime = 300 } = {}) {
     wait(S.pause);
   };
   const click = () => { const i = act(); grip[i] = !grip[i]; res.clicks++; step(); };
-  d.started = true;
+  if (window.__tg?.phase !== 'armed') d.started = true; // a real run (countdown done) starts itself
   try {
     if (d.constructor.name === 'PeaDrill') {
       while (!d.complete && T < maxTime) {

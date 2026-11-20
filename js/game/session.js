@@ -248,7 +248,8 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   listeners.slip = () => { if (phase === 'running') callout('Slipped off!', 'bad'); };
   listeners.start = () => { if (phase === 'armed') begin(); };
   listeners.reverse = () => callout('Reverse!', 'good');
-  listeners.complete = () => { if (phase === 'running') { if (school) endLesson(); else finish(); } };
+  // finishing always ends the run — even if the start signal was missed (it never leaves you without an ending)
+  listeners.complete = () => { if (phase === 'armed') begin(); if (phase === 'running') { if (school) endLesson(); else finish(); } };
   listeners.fail = () => {
     phase = 'failed';
     const ov = h('div', { class: 'complete' }, h('div', {}, h('div', { class: 't fail' }, '3 STRIKES!'), h('div', { class: 's' }, 'RESTARTING…')));
@@ -387,12 +388,23 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
     playSound('success');
     const ov = h('div', { class: 'complete' }, h('div', {}, h('div', { class: 't' }, 'DRILL', h('br'), 'COMPLETE'), h('div', { class: 's' }, fmtTime(metrics.time))));
     root.append(ov);
-    const fm = drill.final();
-    const final = metrics.final({ ...fm, drillId, drillName: def.name, level, hand: effHand, mode, variant, reps: reps.slice(), ghostRec: { time: metrics.time, reps: reps.map((r) => +r.t.toFixed(2)), path: rec.slice(), dt: GHOST_DT } });
-    addPlayTime(metrics.time);
+    let final;
+    try {
+      const fm = drill.final();
+      final = metrics.final({ ...fm, drillId, drillName: def.name, level, hand: effHand, mode, variant, reps: reps.slice(), ghostRec: { time: metrics.time, reps: reps.map((r) => +r.t.toFixed(2)), path: rec.slice(), dt: GHOST_DT } });
+      addPlayTime(metrics.time);
+    } catch (e) { console.error('run summary failed', e); final = { time: metrics.time, errors: drill.errors || 0 }; }
     setTimeout(() => {
       ov.remove(); if (disposed) return;
-      showScoreCard(final, { onRetry: () => restart(true), onDrills: () => exit(true), onHome: () => nav('#/home') });
+      try { showScoreCard(final, { onRetry: () => restart(true), onDrills: () => exit(true), onHome: () => nav('#/home') }); }
+      catch (e) {
+        // never leave the player without an ending: a plain results card
+        console.error('score card failed', e);
+        const m = modal({ title: 'Drill complete', iconName: 'check', cls: 'sc', onClose: () => exit(true) });
+        m.body.append(
+          h('div', { class: 'grade' }, 'TIME ' + fmtTime(final.time)), h('div', { class: 't-dim' }, `${final.errors} ${drillId === 'cobra-rope' ? 'strike' : 'bump'}${final.errors === 1 ? '' : 's'}`),
+          h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: () => { m.root.remove(); restart(true); } }, icon('retry'), 'Retry'), h('button', { class: 'btn primary', onclick: () => m.close() }, icon('grid'), 'Drills')));
+      }
     }, 1700);
   }
   function finishSandbox() {
@@ -446,6 +458,7 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
     const canMove = phase === 'armed' || phase === 'running';
     if (!canMove) inputs = inputs.map(() => ({ ...zero }));
     else assist.apply(inputs, dt);
+    if (phase === 'armed' && startMode === 'event' && drill.started) begin(); // the drill started itself (first grab)
     if (phase === 'armed' && startMode === 'move' && inputs.some((i) => Math.abs(i.mx || 0) + Math.abs(i.my || 0) + Math.abs(i.insert || 0) + (i.orbit ? Math.abs(i.orbit.x) + Math.abs(i.orbit.y) : 0) > 0.05 || i.abs || i.delta || i.grip || i.heightAbs != null)) begin();
     drill.update(dt * timeScale, inputs, store.settings.sens);
     if (phase === 'running') metrics.update(dt, drill.tips);
