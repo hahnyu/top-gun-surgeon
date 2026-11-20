@@ -133,7 +133,7 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   }
   fx = new FX(vp, fxLayer); fitCamera();
   // side-view window (Beginner depth aid): an orthographic camera beside the active instrument
-  const insetOn = false; // side-view window removed (play-testing): depth comes from the shadow, autopilot and the height gauge
+  const insetOn = false; // side-view window removed (play-testing): depth comes from the shadow and the height gauge
   const insetCam = new THREE.OrthographicCamera(-1.15, 1.15, 0.65, -0.65, 0.1, 30);
   const insetEl = insetOn ? h('div', { class: 'inset' }, h('div', { class: 'lab' }, 'SIDE VIEW')) : null;
   if (insetEl) root.append(insetEl);
@@ -154,9 +154,9 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   // ---------------------------------------------------------------- input (drag-to-move, hold-to-grip)
   const bindings = () => def.keys(store.settings.leftHand);
   const input = new InputSystem({ host: canvasHost, layer: ctlLayer, vp, drill, def, settings: store.settings });
-  // control assists (autopilot height, magnets, miss hints) — training wheels by level
+  // coaching hints for missed grabs (never moves the tool) — off at Expert
   const assist = new Assist(drill, level, mode, {
-    say: (text) => listeners.tip?.({ text }), device: () => input.lastDevice, activeIndex: () => input.activeIndex(), tap: () => input.tap(), clearGrip: (i) => input.clearGrip(i),
+    say: (text) => listeners.tip?.({ text }), device: () => input.lastDevice, activeIndex: () => input.activeIndex(),
   });
   const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('no-touch', !isTouch);
@@ -276,8 +276,6 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
     }
     const tags = [
       variant ? h('span', { class: 'bc-tag dark' }, VARIANTS[variant].name + (variant === 'speed' ? ` · par ${fmtTime(PAR[drillId])}` : '')) : null,
-      assist.on && assist.kind === 'autopilot' ? h('span', { class: 'bc-tag' }, drillId === 'triangle-transfer' ? 'Autopilot hook' : 'Autopilot height') : null,
-      assist.on && assist.kind === 'magnet' ? h('span', { class: 'bc-tag' }, 'Height magnet') : null,
       ghost ? h('span', { class: 'bc-tag ghost' }, `Race your ghost · ${fmtTime(ghost.time)}`) : null,
     ].filter(Boolean);
     const sh = sheet(`${def.name} · ${nice(level)}`, { dismissable: false, cls: 'brief brief-simple' });

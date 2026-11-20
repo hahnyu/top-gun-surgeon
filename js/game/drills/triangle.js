@@ -12,6 +12,7 @@ const SRC_R = 0.95, TGT_R = 1.0;
 const LOOP_C = new THREE.Vector3(0, TRI.H + 0.12 + TRI.LOOP_R * 0.25, 0);
 const UPV = new THREE.Vector3(0, 1, 0);
 const REST_TOP = TRI.H + 0.12 + TRI.LOOP_R * 0.25 + TRI.LOOP_R - TRI.LOOP_TUBE; // loop's inner top when the triangle stands on the plate
+const _q2 = new THREE.Quaternion(), _n = new THREE.Vector3(), _w = new THREE.Vector3(), _a = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _m = new THREE.Matrix4();
 const qY = (dir) => new THREE.Quaternion().setFromUnitVectors(UPV, dir.clone().normalize());
 const plain = (q) => ({ x: q.x, y: q.y, z: q.z, w: q.w });
@@ -74,6 +75,8 @@ export class TriangleDrill extends BaseDrill {
     this.hookBody = pw.kinematic();
     const HOOK = groups(G.JAW, G.OBJ);
     const sm = this.tool.inst.samples; this.hookCols = [];
+    { const ca = this.tool.inst.catchLocal; let bi = 0, bd = Infinity; sm.forEach((p, i) => { const d = p.distanceTo(ca); if (d < bd) { bd = d; bi = i; } });
+      this.wireLocal = sm[Math.min(sm.length - 1, bi + 1)].clone().sub(sm[Math.max(0, bi - 1)]).normalize(); } // wire direction at the bend
     for (let i = 0; i < sm.length - 1; i++) {
       const a = sm[i], b = sm[i + 1], d = b.clone().sub(a), len = d.length(); if (len < 1e-4) continue;
       const mid = a.clone().add(b).multiplyScalar(0.5);
@@ -107,7 +110,7 @@ export class TriangleDrill extends BaseDrill {
   attach() {
     const R = this.pw.R, a = this.tool.inst.catchLocal, top = LOOP_C.clone().add(V(0, TRI.LOOP_R - TRI.LOOP_TUBE, 0));
     this.joint = this.pw.w.createImpulseJoint(R.JointData.spherical({ x: a.x, y: a.y, z: a.z }, { x: top.x, y: top.y, z: top.z }), this.hookBody, this.body, true);
-    for (let i = 0; i < this.body.numColliders(); i++) this.body.collider(i).setCollisionGroups(this.OBJ_NOHOOK);
+    for (const c of this.loopCols) c.setCollisionGroups(this.OBJ_NOHOOK); // the prism stays solid to the hook
     this.body.wakeUp();
     synth('grab'); this.emit('grab', { obj: this.obj, pos: this.loopWorld().c });
     if (!this.started) this.emit('start');
@@ -139,6 +142,19 @@ export class TriangleDrill extends BaseDrill {
     this.obj.position.copy(this.O); this.obj.quaternion.copy(this.q);
   }
   loopWorld() { return { c: LOOP_C.clone().applyQuaternion(this.q || _q.identity()).add(this.O || this.src), n: V(0, 0, 1).applyQuaternion(this.q || _q.identity()) }; }
+  /** While hooked the wire runs through the ring: the loop may swing around the wire and tilt a little,
+   *  but it can't turn edge-on to the wire (that would pass the solid ring through the hook). */
+  keepThreaded(hookQ, h) {
+    const r = this.body.rotation(), q = _q2.set(r.x, r.y, r.z, r.w);
+    const n = _n.set(0, 0, 1).applyQuaternion(q), w = _w.copy(this.wireLocal).applyQuaternion(hookQ);
+    if (n.dot(w) < 0) w.negate();
+    const ang = Math.acos(Math.min(1, n.dot(w))), MAX = 0.5;
+    if (ang <= MAX) return;
+    const axis = _a.crossVectors(n, w); if (axis.lengthSq() < 1e-8) return; axis.normalize();
+    const av = this.body.angvel(), cur = av.x * axis.x + av.y * axis.y + av.z * axis.z;
+    const want = Math.min(12, ((ang - MAX) / h) * 0.5); // close half the overshoot each step
+    if (cur < want) { const k = want - cur; this.body.setAngvel({ x: av.x + axis.x * k, y: av.y + axis.y * k, z: av.z + axis.z * k }, true); }
+  }
   hookTouching() { return this.loopCols.some((c) => this.hookCols.some((k) => this.pw.touching(c, k))); }
   update(dt, inputs, sens) {
     this.tick(dt);
@@ -149,6 +165,7 @@ export class TriangleDrill extends BaseDrill {
       tool.inst.group.updateMatrixWorld(true);
       tool.inst.group.matrixWorld.decompose(_v, _q, new THREE.Vector3());
       this.hookBody.setNextKinematicTranslation({ x: _v.x, y: _v.y, z: _v.z }); this.hookBody.setNextKinematicRotation(plain(_q));
+      if (this.joint) this.keepThreaded(_q, h);
     });
     this.syncObj();
     this.touchError(tool, tool.contact, 'Touched the template');
@@ -199,11 +216,10 @@ export class TriangleDrill extends BaseDrill {
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 5);
     this.tgtMesh.traverse((o) => { if (o.material?.emissive && o.material.emissiveIntensity !== undefined) o.material.emissiveIntensity = this.lifted ? 0.4 + pulse * 1.1 : 0.45; });
   }
-  /** For the control assists: the loop to thread, the landing circle, safe heights. */
+  /** Coaching hints skip the hook drill. */
   assistInfo() {
     const t = this.tool; if (!t || this.respawnT > 0) return null;
-    return { kind: 'hook', joint: !!this.joint, loop: this.loopWorld(), off: t.world(t.inst.catchLocal).clone().sub(t.tip), cruise: 1.3, rest: 0.62,
-      drops: [{ x: this.tgt.x, z: this.tgt.z + 0.25, r: 1.3 }] };
+    return { kind: 'hook' };
   }
   hints() {
     const t = this.tool; if (!t || this.joint || this.lifted || this.respawnT > 0) return [null];

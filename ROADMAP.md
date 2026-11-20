@@ -36,7 +36,7 @@ Only one thing is fixed: **the fundamental rules of each drill** (what you trans
 - **Two-instrument drills:** you control the instrument the rules say is next; the other holds still. Kids never juggle two hands on one keyboard.
 
 ### 5. Seeing depth (the hardest skill)
-Depth aids are training wheels kids graduate off: Beginner gets autopilot height, a strong shadow and the height gauge (the side-view window was removed after play-testing); higher levels remove them one at a time until it's scope-only, like real surgery.
+Depth aids are training wheels kids graduate off: Beginner gets a strong shadow, the height gauge and miss hints (the side-view window was removed after play-testing); higher levels remove them one at a time until it's scope-only, like real surgery.
 
 ### 6. Physics that feels real
 **Now:** nothing collides with the jaws, so a grabbed pea passes through the metal; each drill fakes its own physics.
@@ -146,5 +146,5 @@ Teacher class codes, class leaderboards and progress view, privacy review (COPPA
 - **Offline and install**: the service worker precaches the whole game including three.js and Rapier (`node tools/precache.mjs` before each deploy); install colours and orientation fixed.
 - README rewritten with run and deploy steps.
 - Home layout: the hero stays in view beside the taller side column.
-- **Easier controls (after play-testing)**: assists as training wheels that keep every rule — Beginner/Rule school: *Autopilot height* (point, press GRAB, it dives and grabs; drop targets pull you into line; steady speed; Triangle threads and sets down the hook for you); Intermediate: *Height magnet* + miss hints; Advanced: miss hints only; Expert: none. Tap-to-grip by default (Settings). W goes in, S comes out. Lessons start with a "move around" step. Assisted kid bot at Beginner: Pea 100 s / 0 bumps, Triangle 83–106 s / 0–1, Cylinder 158 s / 0 (was 135 s, 98 s, 220 s with misses).
+- **Easier controls (after play-testing)**: tried an autopilot (auto dive-and-grab, drop magnets, auto hook threading); removed after play-testing — nothing moves the instrument for you. What stays: miss hints on Beginner–Advanced ("too high", "line up over it"), tap-to-grip, W in / S out, a "move around" first lesson step.
 - **Still open**: play-testing with real kids; the name check ("Top Gun" is a Paramount trademark and the name of the Top Gun Laparoscopic Skills program); publishing on the veridien website (needs your go-ahead).

@@ -142,7 +142,7 @@ export async function play({ skill = 'kid', maxTime = 300 } = {}) {
 
 /**
  * Plays like a kid WITH the control assists: only points (the pointer moves at kid speed with wobble)
- * and clicks grab (tap mode). Never touches height — that's autopilot's job on Beginner.
+ * and clicks grab (tap mode). Never touches height (written for the old autopilot, which was removed).
  */
 export async function playAssisted({ maxTime = 300 } = {}) {
   const g = window.__tg, d = g.drill, A = g.assist;

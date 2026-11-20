@@ -254,10 +254,8 @@ export class CylinderDrill extends BaseDrill {
   /** For the control assists (the active grasper): wings to grab, the pass zone, the peg to land on. */
   assistInfo(i) {
     const t = this.tools[i], st = this.step, c = this.cyls[st.cyl], holding = !!t.solid.held;
-    const info = { cruise: 1.6, holding, moveOver: `Move over Cylinder ${st.cyl + 1}'s wing first`, targets: [], drops: [] };
+    const info = { holding, moveOver: `Move over Cylinder ${st.cyl + 1}'s wing first`, targets: [] };
     if (!holding && (this.phase === 'pickup' || this.phase === 'transfer')) info.targets = this.wingWorld(c).map((w) => ({ pos: w, y: w.y }));
-    if (holding && this.phase === 'carry') info.drops = [{ x: st.pick === 'L' ? 0.4 : -0.4, z: 0.8, y: 1.6, r: 1.1 }];
-    if (holding && this.phase === 'place') { const off = c.pos.clone().sub(t.tip); info.drops = [{ x: st.to.x - off.x, z: st.to.z - off.z, y: 1.25, r: 0.9 }]; }
     return info;
   }
   hints() {

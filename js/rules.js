@@ -92,7 +92,7 @@ export function ruleFor(drillId, reason) {
 export const LESSONS = {
   'pea-drop': [
     { say: 'Hi, I’m Scout! This grasper is a real surgery tool. Move with the arrow keys (or drag a finger) — it follows you!', done: (d) => d.tools.some((t) => t.tip.distanceTo(t.start) > 1.2) },
-    { say: 'Now stop over a pea and press GRAB. Autopilot dives down and grabs it for you.', rule: 'pea-grab', done: (d, c) => c.grab >= 1 },
+    { say: 'Stop over a pea, push in (W) until the jaws reach it, then press GRAB.', rule: 'pea-grab', done: (d, c) => c.grab >= 1 },
     { say: 'Got it! Now steer it right over the cup.', done: (d) => !!d.held && Math.hypot(d.tool.tip.x - d.cupC.x, d.tool.tip.z - d.cupC.z) < 0.5 },
     { say: 'Press GRAB again to let go — drop it, don’t push it in!', rule: 'pea-drop', done: (d, c) => c.success >= 1 },
     { say: 'Nice! One more rule: never touch the cup. Drop two more without a bump!', rule: 'pea-touch', done: (d, c) => c.success >= 3 },
@@ -100,7 +100,7 @@ export const LESSONS = {
   ],
   'triangle-transfer': [
     { say: 'Hi, I’m Scout! This is a hook. Move with the arrow keys (or drag a finger) — it follows you!', done: (d) => d.tools.some((t) => t.tip.distanceTo(t.start) > 1.2) },
-    { say: 'Fly next to the loop on top of the triangle and press GRAB — autopilot threads the hook through.', rule: 'tri-hook', done: (d) => !!d.joint },
+    { say: 'Line the hook up with the loop on top of the triangle and push it through the hole.', rule: 'tri-hook', done: (d) => !!d.joint },
     { say: 'Hooked! It lifts straight up — never drag it on the board.', rule: 'tri-lift', done: (d) => !!d.lifted },
     { say: 'Fly it smoothly over the landing circle and press GRAB to set it down. No shaking!', rule: 'tri-land', done: (d, c) => c.success >= 1 },
     { say: 'Super! Do one more — lift first, no dragging.', rule: 'tri-drag', done: (d, c) => c.success >= 2 },
@@ -115,10 +115,10 @@ export const LESSONS = {
   ],
   'cylinder-transfer': [
     { say: 'Hi, I’m Scout! Move with the arrow keys (or drag a finger) — the glowing grasper follows you.', done: (d) => d.tools.some((t) => t.tip.distanceTo(t.start) > 1.2) },
-    { say: 'Stop over a wing of cylinder 1 and press GRAB — autopilot picks it up off the peg.', rule: 'cyl-pick', done: (d) => d.phase !== 'pickup' },
+    { say: 'Stop over a wing of cylinder 1, push in to reach it, then press GRAB.', rule: 'cyl-pick', done: (d) => d.phase !== 'pickup' },
     { say: 'Carry it over the dotted centre line.', done: (d) => d.phase === 'transfer' || d.phase === 'place' },
     { say: 'Now your other hand: move over the free wing and press GRAB — a mid-air pass!', rule: 'cyl-pass', done: (d) => d.phase === 'place' },
-    { say: 'Fly to the glowing peg — it pulls you in — and press GRAB to let go.', rule: 'cyl-place', done: (d, c) => c.success >= 1 },
+    { say: 'Line it up over the glowing peg and press GRAB to let go.', rule: 'cyl-place', done: (d, c) => c.success >= 1 },
     { say: 'Follow the numbers: 1, 2, 3 — and don’t drop it or bump the board.', rule: 'cyl-order', wait: 2 },
     { say: 'Last rule: hold on until it’s on the peg.', rule: 'cyl-drop', wait: 3 },
   ],

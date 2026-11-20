@@ -96,5 +96,5 @@ const MODS = {
   'cylinder-transfer': { BEGINNER: ['Six forward, six back'], INTERMEDIATE: ['Six forward, six back'], ADVANCED: ['Six forward, six back'], EXPERT: ['Six forward, six back'] },
   suturing: { BEGINNER: ['Free practice'], INTERMEDIATE: ['Free practice'], ADVANCED: ['Free practice'], EXPERT: ['Free practice'] },
 };
-const AIDS = { BEGINNER: 'Autopilot height', INTERMEDIATE: 'Height magnet + grab helper', ADVANCED: 'Miss hints only', EXPERT: 'No helpers' };
+const AIDS = { BEGINNER: 'Miss hints', INTERMEDIATE: 'Miss hints', ADVANCED: 'Miss hints', EXPERT: 'No helpers' };
 export const modifiersFor = (id, level) => [...(MODS[id]?.[level] || []), ...(id === 'suturing' ? [] : [AIDS[level]])];
