@@ -267,20 +267,6 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   }
 
   // short, kid-sized briefings: one goal, one "don't", the controls
-  const GOAL = {
-    'pea-drop': 'Drop 10 peas into the cup.',
-    'triangle-transfer': 'Hook the triangle and fly it to the landing circle. 5 times!',
-    'cobra-rope': 'Grab every red band in order, taking turns. Pull it tight each rep: Line of Nick!',
-    'cylinder-transfer': 'Move each cylinder across, passing it hand to hand in mid-air.',
-    suturing: 'Drive the needle across the cut. Practice as long as you like.',
-  };
-  const DONT = {
-    'pea-drop': 'Don’t touch the cup.',
-    'triangle-transfer': 'Lift it — don’t drag it or shake it.',
-    'cobra-rope': 'Don’t skip a red. 3 strikes and you start over.',
-    'cylinder-transfer': 'Don’t drop it or touch the board.',
-    suturing: 'Roll your wrist (Q / E) to drive the needle.',
-  };
   function showIntro() {
     phase = 'intro';
     if (school) return showSchoolIntro();
@@ -302,8 +288,6 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
     ].filter(Boolean);
     const sh = sheet(`${def.name} · ${nice(level)}`, { dismissable: false, cls: 'brief brief-simple' });
     sh.body.append(
-      h('p', { class: 'bc-goal' }, GOAL[drillId] || def.instructions(level).goal),
-      h('div', { class: 'bc-dont' }, icon('close'), DONT[drillId] || ''),
       tags.length ? h('div', { class: 'bc-tags' }, tags) : null,
       h('div', { class: 'bc-controls' }, controls),
       h('div', { style: { display: 'flex', gap: '10px' } },
