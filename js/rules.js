@@ -93,7 +93,7 @@ export const LESSONS = {
   'pea-drop': [
     { say: 'Hi, I’m Scout! This grasper is a real surgery tool. Move with the arrow keys (or drag a finger) — it follows you!', done: (d) => d.tools.some((t) => t.tip.distanceTo(t.start) > 1.2) },
     { say: 'Now stop over a pea and press GRAB. Autopilot dives down and grabs it for you.', rule: 'pea-grab', done: (d, c) => c.grab >= 1 },
-    { say: 'Got it! Fly it over the cup — the cup pulls you into line.', done: (d) => !!d.held && Math.hypot(d.tool.tip.x - d.cupC.x, d.tool.tip.z - d.cupC.z) < 0.5 },
+    { say: 'Got it! Now steer it right over the cup.', done: (d) => !!d.held && Math.hypot(d.tool.tip.x - d.cupC.x, d.tool.tip.z - d.cupC.z) < 0.5 },
     { say: 'Press GRAB again to let go — drop it, don’t push it in!', rule: 'pea-drop', done: (d, c) => c.success >= 1 },
     { say: 'Nice! One more rule: never touch the cup. Drop two more without a bump!', rule: 'pea-touch', done: (d, c) => c.success >= 3 },
     { say: 'The real drill is 10 peas. A pea that rolls away is a miss.', rule: 'pea-ten', wait: 3.5 },

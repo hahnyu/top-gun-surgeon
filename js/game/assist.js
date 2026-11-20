@@ -1,7 +1,7 @@
 // Control assists — training wheels that make the *mechanics* easier and leave every rule decision
 // to the player. They come off as the levels go up:
 //   Beginner / Rule school: AUTOPILOT HEIGHT — the tip cruises at a safe height; press grab over an
-//     object and it dives, grabs and climbs back; drop targets (cup, pegs) gently pull you in line;
+//     object and it dives, grabs and climbs back; drop targets (pegs) gently pull you in line;
 //     steady hands (a speed cap); Triangle: press grab near the loop to thread the hook, press again
 //     to set it down.
 //   Intermediate: HEIGHT MAGNET — near an object the tip eases to grabbing height. Miss hints.
@@ -78,8 +78,10 @@ export class Assist {
         for (const d of info.drops || []) {
           const dist = hd(t.target, d);
           if (dist < d.r) {
-            const k = Math.min(1, dt * 3.2) * (1 - dist / d.r);
-            t.target.x += (d.x - t.target.x) * k; t.target.z += (d.z - t.target.z) * k;
+            if (d.pull !== false) {
+              const k = Math.min(1, dt * 3.2) * (1 - dist / d.r);
+              t.target.x += (d.x - t.target.x) * k; t.target.z += (d.z - t.target.z) * k;
+            }
             if (d.y != null) dropY = d.y;
           }
         }

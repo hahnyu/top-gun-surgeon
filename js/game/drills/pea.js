@@ -152,7 +152,7 @@ export class PeaDrill extends BaseDrill {
   assistInfo() {
     return { cruise: 1.2, holding: !!this.solid.held, moveOver: 'Move over a pea first, then grab',
       targets: this.peas.filter((p) => p.state === 'ring').map((p) => ({ pos: p.mesh.position, y: p.mesh.position.y })),
-      drops: [{ x: this.cupC.x, z: this.cupC.z, y: CUP_H + 0.42, r: 1.0 }] };
+      drops: [{ x: this.cupC.x, z: this.cupC.z, y: CUP_H + 0.42, r: 1.0, pull: false }] };
   }
   hints() {
     const t = this.tool; if (!t) return [];
