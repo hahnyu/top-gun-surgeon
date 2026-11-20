@@ -215,7 +215,7 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
     if (split != null) { const dd = metrics.time - split; setTimeout(() => callout(`${dd < 0 ? '−' : '+'}${Math.abs(dd).toFixed(1)} s vs your best`, dd < 0 ? 'good' : 'tip'), 650); }
     combo = errSinceRep === 0 ? combo + 1 : 1; errSinceRep = 0;
     music.intensity(combo >= 4 ? 3 : combo >= 2 ? 2 : 1); // the music builds with a clean streak
-    if (d?.pos) { fx.confetti(d.pos); fx.float(d.pos, '+1', 'good'); }
+    if (d?.pos) { fx.confetti(d.pos); if (!BURST[drillId]) fx.float(d.pos, '+1', 'good'); else successBurst(d); }
     sfx('chime', combo); haptic([15, 40, 25]);
     if (combo >= 2) showCombo(combo);
   };
@@ -224,6 +224,31 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   listeners.tip = (d) => { if (phase === 'running' && !(tipCool > performance.now())) { tipCool = performance.now() + 1500; callout(d?.text || '', 'tip'); } };
   let tipCool = 0;
   listeners.handoff = () => { sfx('tick2'); haptic(10); };
+  // success impact frames (different from Line of Nick): a bright colour pop, a quick camera punch-in,
+  // shockwave rings, and a comic starburst badge the call-out slams onto; each drill adds its own touch
+  const BURST = {
+    'pea-drop': { words: ['SWISH!', 'IN THE CUP!', 'BULLSEYE!', 'NICE DROP!'], c: 'orange', extra: 'rings' },
+    'triangle-transfer': { words: ['TOUCHDOWN!', 'STUCK IT!', 'NAILED IT!'], c: 'sky', extra: 'bars' },
+    'cylinder-transfer': { words: ['PEGGED!', 'RINGER!', 'SLOTTED!'], c: 'mint', extra: 'slash' },
+  };
+  let burstN = 0;
+  function successBurst(d) {
+    const B = BURST[drillId]; if (!B || !d?.pos) return;
+    const calm = !!store.settings.reduceMotion;
+    const rect = canvasHost.getBoundingClientRect(), p = d.pos.clone().project(vp.camera);
+    const x = Math.max(150, Math.min(rect.width - 150, (p.x + 1) / 2 * rect.width)), y = Math.max(110, Math.min(rect.height - 80, (1 - p.y) / 2 * rect.height - 40));
+    const word = B.words[burstN++ % B.words.length], target = drill.hud?.().target;
+    const el = h('div', { class: `burst c-${B.c} bu-${B.extra}` + (calm ? ' calm' : '') },
+      calm ? null : h('div', { class: 'bu-extra' }),
+      calm ? null : h('div', { class: 'bu-rings' }, h('i'), h('i'), h('i')),
+      h('div', { class: 'bu-pop' }, calm ? null : h('div', { class: 'bu-star' }), h('b', {}, word), target ? h('small', {}, `${d.count ?? ''} / ${target}`) : null));
+    el.style.setProperty('--x', x + 'px'); el.style.setProperty('--y', y + 'px');
+    root.append(el); setTimeout(() => el.remove(), 1400);
+    if (calm) return;
+    canvasHost.classList.add('burst-frame'); setTimeout(() => canvasHost.classList.remove('burst-frame'), 120);
+    fx.pushIn(0.07, 0.45); fx.shake(0.05);
+    if (!(d.count >= target)) { const ts = timeScale; timeScale = 0.05; setTimeout(() => { if (timeScale === 0.05) timeScale = ts || 1; }, 90); } // tiny hit-stop (the last rep has its own slow-mo)
+  }
   // Cobra: "Line of Nick" — the rope pulled tight between two reds. An anime-style impact frame:
   // a split-second freeze, an inverted ink flash with speed lines, and the call-out on the rope.
   listeners.nick = (d) => {
