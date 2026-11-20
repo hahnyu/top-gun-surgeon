@@ -135,8 +135,9 @@ export class PeaDrill extends BaseDrill {
     this.tool.reset();
   }
   scored(p) {
-    // "Putting": pushing a pea that was sitting on the cup into the hole with the grasper (not dropping it)
-    if (this.started && (p.releasedAt === undefined || this.t - p.releasedAt > 1.5) && p.mesh.position.distanceTo(this.tool.tip) < 0.4) this.error('Putting — drop the pea in, don\'t push it', { force: true, pos: p.mesh.position.clone() });
+    // "Putting": pushing a pea into the hole with the grasper instead of dropping it. A pea you just let go
+    // of that landed on the rim and got nudged in during your next try is still that same drop, not putting.
+    if (this.started && (p.releasedAt === undefined || this.t - p.releasedAt > 6) && p.mesh.position.distanceTo(this.tool.tip) < 0.4) this.error('Putting — drop the pea in, don\'t push it', { force: true, pos: p.mesh.position.clone() });
     p.state = 'in'; p.mesh.visible = false; p.collider.setEnabled(false);
     this.success++;
     this.emit('enter', {});

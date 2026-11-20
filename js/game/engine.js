@@ -185,15 +185,24 @@ export class Viewport {
     this.post?.setSize(w, h, this.renderer.getPixelRatio());
   }
   render(dt = 0.016) { if (this.adaptive) this.govern(dt); if (this.post && !this.postOff) this.post.render(dt); else this.renderer.render(this.scene, this.camera); }
-  /** Adaptive quality for school tablets: if frames stay slow (< ~45 fps) for a few seconds, step down
-   *  one notch — smaller shadows, then no lens effects, then lower resolution, then no shadows. */
+  /** Adaptive quality for school tablets: if frames stay slow (< ~45 fps) for a few seconds, note that one
+   *  notch less would help (smaller shadows, then no lens effects, then lower resolution, then no shadows).
+   *  Nothing changes mid-run (that looked like a random zoom / lighting change); the session saves the
+   *  wish and the next drill starts at that quality. */
   govern(dt) {
     if (dt <= 0 || dt > 0.1 || document.hidden) return; // hidden or throttled frames say nothing about speed
     this._ft = this._ft === undefined ? dt : this._ft * 0.95 + dt * 0.05;
     this._slow = this._ft > 0.022 ? (this._slow || 0) + dt : 0;
     this._cool = Math.max(0, (this._cool || 0) - dt);
     if (this._slow < 2.5 || this._cool > 0) return;
-    this._slow = 0; this._cool = 3; this.qStep = (this.qStep || 0) + 1;
+    this._slow = 0; this._cool = 3; this.wantStep = Math.min(4, (this.qStep || 0) + 1); // at most one notch per run
+  }
+  /** Apply a quality notch at start-up (0 = full). */
+  applyQuality(step) {
+    while ((this.qStep || 0) < Math.min(4, step)) this.stepDown();
+  }
+  stepDown() {
+    this.qStep = (this.qStep || 0) + 1;
     const r = this.renderer, key = this.keyLight;
     if (this.qStep === 1) { key.shadow.mapSize.set(1024, 1024); key.shadow.map?.dispose(); key.shadow.map = null; }
     else if (this.qStep === 2 && this.post) this.postOff = true;

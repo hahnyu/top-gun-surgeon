@@ -58,10 +58,10 @@ export function mapPage(el, { fly, school }) {
     const ys = pts.filter((_, i) => NODES[i].island === k).map((p) => p.y);
     return { cy: (Math.min(...ys) + Math.max(...ys)) / 2, ry: (Math.max(...ys) - Math.min(...ys)) / 2 + 84, rx: 178, open: st.find((n) => n.island === k)?.open };
   });
-  let path = `M${pts[0].x} ${pts[0].y}`; const samples = [];
+  let path = `M${pts[0].x} ${pts[0].y}`; const samples = [], segs = [];
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i], c1 = [a.x, a.y - STEP * 0.45], c2 = [b.x, b.y + STEP * 0.45];
-    path += ` C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${b.x} ${b.y}`;
+    path += ` C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${b.x} ${b.y}`; segs.push(` C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${b.x} ${b.y}`);
     for (let t = 0; t <= 1; t += 0.08) { const u = 1 - t; samples.push({ x: u * u * u * a.x + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * b.y }); }
   }
   const svg = `<svg class="map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${mapArt({ pts, nodes: NODES, islands, W, H, routeD: path, routeSamples: samples })}</svg>`;
@@ -85,8 +85,45 @@ export function mapPage(el, { fly, school }) {
     h('div', { class: 'map-head card glass card-pad' }, h('div', {}, h('div', { class: 't-over' }, 'Campaign'), h('div', { class: 'si-t' }, `${total} / ${NODES.length * 3} stars`)),
       btn(`Fly base ${cur.n}`, { kind: 'primary', iconName: 'plane', sound: null, onClick: () => openBase(cur, { fly, school }) })),
     h('div', { class: 'map-scroll' }, map)));
-  // start scrolled to where you are
-  requestAnimationFrame(() => el.querySelector('.base-node.cur')?.scrollIntoView({ block: 'center' }));
+  // a new base since your last visit? fly the jet there along the route
+  let last = 0; try { last = +localStorage.getItem('tgs:mapLast') || 0; } catch {}
+  try { localStorage.setItem('tgs:mapLast', String(cur.n)); } catch {}
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches || store.settings.reduceMotion;
+  if (last > 0 && cur.n > last && !calm) requestAnimationFrame(() => flyTo(el, map, pts, segs, last - 1, cur.n - 1, H));
+  else requestAnimationFrame(() => el.querySelector('.base-node.cur')?.scrollIntoView({ block: 'center' }));
+}
+
+const JET_SVG = '<svg viewBox="-24 -20 48 40" aria-hidden="true"><path d="M22 0 10-3.4H1L-7-17h-5l3 13.6H-17l-4-5.6h-4l2 9 -2 9h4l4-5.6h8.1L-12 17h5l8-13.6h9z" fill="#fffdf6" stroke="#0b1430" stroke-width="2.4" stroke-linejoin="round"/><path d="M15-2 20 0 15 2z" fill="#4cc9ff" stroke="#0b1430" stroke-width="1.4"/><path d="M-6-9.5-4-3.4M-6 9.5-4 3.4" stroke="#ff8a1f" stroke-width="2.4" stroke-linecap="round"/></svg>';
+/** The jet takes off from base `from`, follows the dotted route and lands on base `to`. */
+function flyTo(el, map, pts, segs, from, to, H) {
+  const W = 400, scroller = el.querySelector('.map-scroll'), curNode = el.querySelector('.base-node.cur');
+  const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  pathEl.setAttribute('d', `M${pts[from].x} ${pts[from].y}` + segs.slice(from, to).join(''));
+  const len = pathEl.getTotalLength();
+  const jet = h('div', { class: 'map-jet', html: JET_SVG }); map.append(jet);
+  curNode?.classList.add('arriving');
+  const trail = [];
+  const dur = Math.min(3600, 1300 + len * 4), t0 = performance.now();
+  playSound('swipe', { volume: 0.5 }); haptic(10);
+  const place = (p, ang, lift) => { jet.style.left = `${(p.x / W) * 100}%`; jet.style.top = `${(p.y / H) * 100}%`; jet.style.transform = `translate(-50%, -50%) rotate(${ang}rad) scale(${1 + lift * 0.45})`; jet.style.setProperty('--lift', lift); };
+  const step = (now) => {
+    if (!el.isConnected) return;
+    const k = Math.min(1, (now - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+    const L = e * len, p = pathEl.getPointAtLength(L), q = pathEl.getPointAtLength(Math.min(len, L + 2)), pb = pathEl.getPointAtLength(Math.max(0, L - 2));
+    const ang = Math.atan2(q.y - pb.y, q.x - pb.x), lift = Math.sin(Math.PI * k); // climbs, cruises, comes down
+    place(p, ang, lift);
+    // keep it in view
+    const y = (p.y / H) * map.clientHeight; scroller.scrollTop += (y - scroller.clientHeight / 2 - scroller.scrollTop) * 0.12;
+    // contrail puffs
+    if (trail.length === 0 || now - trail.at(-1).t > 60) { const d = h('i', { class: 'map-trail', style: { left: `${(p.x / W) * 100}%`, top: `${(p.y / H) * 100}%` } }); map.insertBefore(d, jet); trail.push({ d, t: now }); setTimeout(() => d.remove(), 900); }
+    if (k < 1) requestAnimationFrame(step);
+    else {
+      jet.classList.add('landed'); setTimeout(() => jet.remove(), 500);
+      curNode?.classList.remove('arriving'); curNode?.classList.add('landed');
+      playSound('success', { volume: 0.4 }); haptic([15, 30, 15]);
+    }
+  };
+  requestAnimationFrame(step);
 }
 
 // ---------------------------------------------------------------- stickers

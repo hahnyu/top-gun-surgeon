@@ -86,7 +86,7 @@ export class TriangleDrill extends BaseDrill {
     const OBJ = groups(G.OBJ, G.ENV | G.OBJ | G.JAW);
     this.body = pw.dynamic(this.src, { linDamp: 0.25, angDamp: 0.9, canSleep: false }); // must follow the moving hook
     const W = TRI.W / 2, D = TRI.D / 2;
-    pw.hull([-W, 0, -D, W, 0, -D, 0, TRI.H, -D, -W, 0, D, W, 0, D, 0, TRI.H, D], this.body, { friction: 0.9, density: 3, groups: OBJ });
+    pw.hull([-W, 0, -D, W, 0, -D, 0, TRI.H, -D, -W, 0, D, W, 0, D, 0, TRI.H, D], this.body, { friction: 0.9, density: 9, groups: OBJ }); // heavy steel: settles instead of jiggling
     pw.collider(R.ColliderDesc.cuboid(0.03, 0.09, 0.03).setTranslation(0, TRI.H + 0.04, 0), this.body, { density: 0.5, groups: OBJ });
     this.OBJ = OBJ; this.OBJ_NOHOOK = groups(G.OBJ, G.ENV | G.OBJ);
     this.loopCols = [];
@@ -110,7 +110,8 @@ export class TriangleDrill extends BaseDrill {
   attach() {
     const R = this.pw.R, a = this.tool.inst.catchLocal, top = LOOP_C.clone().add(V(0, TRI.LOOP_R - TRI.LOOP_TUBE, 0));
     this.joint = this.pw.w.createImpulseJoint(R.JointData.spherical({ x: a.x, y: a.y, z: a.z }, { x: top.x, y: top.y, z: top.z }), this.hookBody, this.body, true);
-    for (const c of this.loopCols) c.setCollisionGroups(this.OBJ_NOHOOK); // the prism stays solid to the hook
+    for (let i = 0; i < this.body.numColliders(); i++) this.body.collider(i).setCollisionGroups(this.OBJ_NOHOOK); // a kinematic hook shoving the prism would fling it
+    this.body.setAngularDamping(4); this.body.setLinearDamping(1.2); // hanging steel swings slowly and settles
     this.body.wakeUp();
     synth('grab'); this.emit('grab', { obj: this.obj, pos: this.loopWorld().c });
     if (!this.started) this.emit('start');
@@ -119,6 +120,7 @@ export class TriangleDrill extends BaseDrill {
     if (!this.joint) return;
     this.pw.w.removeImpulseJoint(this.joint, true); this.joint = null;
     for (let i = 0; i < this.body.numColliders(); i++) this.body.collider(i).setCollisionGroups(this.OBJ);
+    this.body.setAngularDamping(0.9); this.body.setLinearDamping(0.25);
     if (slip) { playSound('jawOpen', { volume: 0.5 }); this.emit('slip'); }
   }
   resetObject() {
@@ -152,13 +154,14 @@ export class TriangleDrill extends BaseDrill {
     if (ang <= MAX) return;
     const axis = _a.crossVectors(n, w); if (axis.lengthSq() < 1e-8) return; axis.normalize();
     const av = this.body.angvel(), cur = av.x * axis.x + av.y * axis.y + av.z * axis.z;
-    const want = Math.min(12, ((ang - MAX) / h) * 0.5); // close half the overshoot each step
+    const want = Math.min(3, ((ang - MAX) / h) * 0.15); // ease it back, never a kick
     if (cur < want) { const k = want - cur; this.body.setAngvel({ x: av.x + axis.x * k, y: av.y + axis.y * k, z: av.z + axis.z * k }, true); }
   }
   hookTouching() { return this.loopCols.some((c) => this.hookCols.some((k) => this.pw.touching(c, k))); }
   update(dt, inputs, sens) {
     this.tick(dt);
     const tool = this.tool, inp = inputs[0] || {};
+    if (this.joint && inp.rot) inp.rot *= 0.4; // turning with the triangle hanging on: slow and steady
     tool.input(inp, dt, sens);
     this.pw.step(dt, (h) => {
       tool.step(h);

@@ -154,9 +154,9 @@ function loop(mat) {
 // Each returns a Group with base at y=0 and loop facing +Z (torus axis along Z).
 export function triDefault() {
   const g = new THREE.Group();
-  // game palette: a coral triangle with a bright mint loop — the thing you aim the hook at
-  const body = M(prismGeo(TRI.W, TRI.H, TRI.D), phys(0xff5d6c, { roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.25 })); g.add(body);
-  g.add(...loop(std(0x36e29a, 0.2, 0.35, { emissive: 0x36e29a, emissiveIntensity: 0.18 })));
+  // brushed steel, like a real trainer part; the loop a slightly darker polished steel
+  const body = M(prismGeo(TRI.W, TRI.H, TRI.D), phys(0xc4cbd3, { metalness: 0.9, roughness: 0.33, clearcoat: 0.3, clearcoatRoughness: 0.4 })); g.add(body);
+  g.add(...loop(std(0x9aa3ae, 0.95, 0.22)));
   return g;
 }
 export function triPyramid() {

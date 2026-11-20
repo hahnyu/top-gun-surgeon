@@ -71,6 +71,8 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   // ---------------------------------------------------------------- 3D
   const vp = new Viewport(canvasHost, { bg: env.bg ?? 0x0d0d18, post: store.settings.quality !== 'low' });
   const autoQ = store.settings.autoQuality !== false;
+  if (autoQ && store.settings.qStep) vp.applyQuality(store.settings.qStep); // quality learned on earlier runs
+  const saveQuality = () => { if (autoQ && (vp.wantStep || 0) > (store.settings.qStep || 0)) store.setSetting('qStep', vp.wantStep); };
   vp.camera.position.set(...def.camera.pos); vp.camera.lookAt(...def.camera.look);
   // auto-framing: fit the drill's working area between the HUD and the thumbs on any screen shape
   const frameBox = new THREE.Box3(new THREE.Vector3(...def.frame.min), new THREE.Vector3(...def.frame.max));
@@ -420,6 +422,7 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
     );
   }
   function restart(withCountdown) {
+    saveQuality();
     document.querySelectorAll('.overlay').forEach((o) => o.remove());
     document.querySelectorAll('.sheet-wrap').forEach((o) => o.remove());
     drill.reset(); metrics.reset(); rec.length = 0; assist.reset(); combo = 0; Object.keys(cnt).forEach((k) => (cnt[k] = 0)); if (school) si = -1; errSinceRep = 0; timeScale = 1; reps.length = 0; comboBreak();
@@ -500,7 +503,7 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   window.__tg = { drill, metrics, vp, input, assist, get phase() { return phase; }, begin, finish, lessonTick, get lessonStep() { return si; }, frame: (t) => { cancelAnimationFrame(raf); frame(t); } };
 
   return function dispose() {
-    disposed = true; cancelAnimationFrame(raf); ro.disconnect(); stopHum(); fx.dispose(); document.removeEventListener('visibilitychange', onVis);
+    saveQuality(); disposed = true; cancelAnimationFrame(raf); ro.disconnect(); stopHum(); fx.dispose(); document.removeEventListener('visibilitychange', onVis);
     document.querySelectorAll('.sheet-wrap').forEach((o) => o.remove());
     input.dispose(); window.removeEventListener('keydown', onEsc); drill.dispose?.();
     document.querySelectorAll('.overlay').forEach((o) => o.remove());
