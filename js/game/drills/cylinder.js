@@ -9,7 +9,8 @@ import { playSound, synth } from '../../audio.js';
 const BLOCK = { w: 6.75, h: 0.225, d: 3.75, z: 0.8 };
 const PEG_H = 0.6, PEG_R = 0.033, CYL_H = 0.42, CYL_R = 0.1125;
 const TOP = BLOCK.h, PEG_TOP = TOP + PEG_H, REST_Y = TOP + CYL_H / 2;
-const GRAB_RANGE = 0.28, PLACE_RANGE = 0.3;
+const _qI = new THREE.Quaternion();
+const GRAB_RANGE = 0.28, PLACE_RANGE = 0.16; // you line it up yourself: no sideways pull onto the peg
 const std = (c, m, r, e = {}) => new THREE.MeshStandardMaterial({ color: c, metalness: m, roughness: r, ...e });
 const sh = (o) => { o.castShadow = true; o.receiveShadow = true; return o; };
 
@@ -77,7 +78,7 @@ export class CylinderDrill extends BaseDrill {
       const s = side === 'L' ? -1 : 1;
       const inst = buildGrasper(this.instTheme?.theme || {}, { jawLength: 0.42, model: 'maryland' });
       const t = new Tool(r, inst, {
-        port: V(4.7 * s, 1.7, 2.6), start: V(1.5 * s, 1.15, 1.7), minLen: 0.8, maxLen: 7, maxCone: 1.25, roll: 0, jaw: 0.85, maxJaw: 0.55,
+        port: V(3.0 * s, 2.7, 4.4), start: V(1.5 * s, 1.15, 1.7), minLen: 0.8, maxLen: 7, maxCone: 1.25, roll: 0, jaw: 0.85, maxJaw: 0.55, // front corners, like a real box: shafts point into the screen
         bounds: { minX: -3.6, maxX: 3.6, minY: 0, maxY: 2.6, minZ: -1.4, maxZ: 3.4 }, label: side,
       });
       t.floor = (x, z) => (Math.abs(x) < BLOCK.w / 2 && Math.abs(z - BLOCK.z) < BLOCK.d / 2 ? TOP : 0);
@@ -157,17 +158,20 @@ export class CylinderDrill extends BaseDrill {
   }
   hud() { return { errors: this.errors, reps: this.success, target: 12, extra: this.dir }; }
   wingWorld(c) { return c.wings.map((w) => w.clone().applyQuaternion(c.g.quaternion).add(c.pos)); }
+  /** which wing (0/1) a tip is at */
+  wingAt(c, tip) { const w = this.wingWorld(c); return w[0].distanceTo(tip) <= w[1].distanceTo(tip) ? 0 : 1; }
   /** The rules, as a grab permission: right cylinder, right grasper, right moment. */
   canGrab(tool, c) {
     if (c.anim || c.placing) return false;
     const st = this.step;
     if (c.idx !== st.cyl) return false;
     if (this.phase === 'pickup') return tool.side === st.pick && !c.holder;
-    if (this.phase === 'transfer') return tool.side !== st.pick && !!c.holder && c.holder !== tool;
+    // the pass: the other grasper must take the OTHER wing, never the one already being held
+    if (this.phase === 'transfer') return tool.side !== st.pick && !!c.holder && c.holder !== tool && this.wingAt(c, tool.tip) !== c.heldWing;
     return false;
   }
   onGrab(tool) {
-    const c = tool.solid.held; c.holder = tool; tool.holding = c;
+    const c = tool.solid.held; c.holder = tool; tool.holding = c; c.heldWing = this.wingAt(c, tool.tip);
     synth('grab'); playSound('jawClose', { volume: 0.8 }); this.emit('grab', { obj: c.g, pos: c.pos.clone() });
     if (this.phase === 'pickup') { this.phase = 'carry'; if (!this.started) this.emit('start'); }
     else if (this.phase === 'transfer') {
@@ -183,10 +187,9 @@ export class CylinderDrill extends BaseDrill {
     const st = this.step;
     const dTo = Math.hypot(c.pos.x - st.to.x, c.pos.z - st.to.z);
     if (this.phase === 'place' && dTo < PLACE_RANGE && c.pos.y - CYL_H / 2 > PEG_TOP - 0.25) {
-      // line it up over the peg and let gravity slide it down
-      c.body.setTranslation({ x: st.to.x, y: Math.max(c.pos.y, PEG_TOP + CYL_H / 2 + 0.02), z: st.to.z }, true);
-      c.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true); c.body.setLinvel({ x: 0, y: -0.5, z: 0 }, true); c.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-      c.placing = 1; c.peg = st.to;
+      // lined up: it slides straight down the peg (scripted, so physics can't leave it perched on top)
+      c.body.setBodyType(this.pw.R.RigidBodyType.KinematicPositionBased, true);
+      c.anim = { kind: 'place', from: c.pos.clone(), q: c.g.quaternion.clone(), t: 0 }; c.peg = st.to;
       return;
     }
     this.error(this.phase === 'place' ? 'Missed the peg' : 'Dropped the cylinder', { pos: c.pos.clone(), tool });
@@ -205,14 +208,22 @@ export class CylinderDrill extends BaseDrill {
         if (ev === 'grab') this.onGrab(t);
         if (ev === 'release') this.onRelease(t, before);
         // grabbing something the rules don't allow is a mistake (once per squeeze)
-        if (grip && t.solid.blocked && !t._blockedOnce && !t.solid.held) { t._blockedOnce = true; const b = t.solid.blocked; this.error(b.idx !== this.step.cyl ? `Wrong cylinder — Cylinder ${this.step.cyl + 1} is next` : 'Wrong grasper for this step', { tool: t }); }
+        if (grip && t.solid.blocked && !t._blockedOnce && !t.solid.held && this.phase === 'transfer' && t.solid.blocked.idx === this.step.cyl && t.side !== this.step.pick && this.wingAt(t.solid.blocked, t.tip) === t.solid.blocked.heldWing) { t._blockedOnce = true; this.emit('tip', { text: 'Grab the OTHER wing — not the one already held' }); }
+        else if (grip && t.solid.blocked && !t._blockedOnce && !t.solid.held) { t._blockedOnce = true; const b = t.solid.blocked; this.error(b.idx !== this.step.cyl ? `Wrong cylinder — Cylinder ${this.step.cyl + 1} is next` : 'Wrong grasper for this step', { tool: t }); }
         if (!grip) t._blockedOnce = false;
       }
     });
     for (const t of this.tools) this.touchError(t, t.contact && t === act, 'Touched the board');
     // sync visuals + placement / drop rules
     for (const c of this.cyls) {
-      if (c.anim?.kind === 'return') {
+      if (c.anim?.kind === 'place') {
+        c.anim.t += dt / 0.4; const k = Math.min(1, c.anim.t), e = k * k * (3 - 2 * k), to = this.step.to;
+        const kx = Math.min(1, k * 3); // centre over the peg first, then slide down
+        c.pos.set(c.anim.from.x + (to.x - c.anim.from.x) * kx, c.anim.from.y + (REST_Y - c.anim.from.y) * e, c.anim.from.z + (to.z - c.anim.from.z) * kx);
+        c.g.quaternion.copy(c.anim.q).slerp(_qI, kx);
+        c.body.setNextKinematicTranslation({ x: c.pos.x, y: c.pos.y, z: c.pos.z }); c.body.setNextKinematicRotation({ x: c.g.quaternion.x, y: c.g.quaternion.y, z: c.g.quaternion.z, w: c.g.quaternion.w });
+        if (k >= 1) { c.anim = null; this.putOnPeg(c, to, REST_Y); this.placed(); }
+      } else if (c.anim?.kind === 'return') {
         c.anim.t += dt / 0.6; const k = Math.min(1, c.anim.t), e = k * k * (3 - 2 * k);
         c.pos.lerpVectors(c.anim.from, c.anim.to, e); c.pos.y += Math.sin(Math.PI * k) * 0.8;
         c.body.setNextKinematicTranslation({ x: c.pos.x, y: c.pos.y, z: c.pos.z });
@@ -224,10 +235,6 @@ export class CylinderDrill extends BaseDrill {
       c.g.position.copy(c.pos);
       const fl = Math.abs(c.pos.x) < BLOCK.w / 2 && Math.abs(c.pos.z - BLOCK.z) < BLOCK.d / 2 ? TOP : 0;
       c.blob.set(c.pos.x, c.pos.z, fl, c.pos.y - CYL_H / 2 - fl);
-      if (c.placing) {
-        c.placing += dt;
-        if (c.pos.y < REST_Y + 0.03 || c.placing > 2.5) { c.placing = 0; this.putOnPeg(c, this.step.to, REST_Y); this.placed(); }
-      }
       if (c.anim?.kind === 'drop') {
         c.anim.t += dt;
         if (c.anim.t > 1.0) {
@@ -255,7 +262,7 @@ export class CylinderDrill extends BaseDrill {
   assistInfo(i) {
     const t = this.tools[i], st = this.step, c = this.cyls[st.cyl], holding = !!t.solid.held;
     const info = { holding, moveOver: `Move over Cylinder ${st.cyl + 1}'s wing first`, targets: [] };
-    if (!holding && (this.phase === 'pickup' || this.phase === 'transfer')) info.targets = this.wingWorld(c).map((w) => ({ pos: w, y: w.y }));
+    if (!holding && (this.phase === 'pickup' || this.phase === 'transfer')) info.targets = this.wingWorld(c).filter((w, k) => this.phase !== 'transfer' || k !== c.heldWing).map((w) => ({ pos: w, y: w.y }));
     return info;
   }
   hints() {

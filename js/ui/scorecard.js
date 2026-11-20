@@ -27,13 +27,17 @@ export function computeScore(m) {
     motion: clamp((m.timeInMotion / (m.timeInMotion + m.timeStill + 0.001)) * 100),
     snaps: clamp(100 - m.snapCount * 5),
   };
-  const overall = Math.round(parts.time * 0.2 + parts.errors * 0.2 + parts.smoothness * 0.2 + parts.path * 0.15 + parts.motion * 0.1 + parts.snaps * 0.15);
+  let overall = parts.time * 0.2 + parts.errors * 0.2 + parts.smoothness * 0.2 + parts.path * 0.15 + parts.motion * 0.1 + parts.snaps * 0.15;
   const pillars = { speed: parts.time, precision: parts.errors, control: (parts.smoothness + parts.path + parts.motion + parts.snaps) / 4 };
+  // Cobra: finesse = how many reps you pulled tight into a "Line of Nick" (worth a fifth of the score)
+  if (m.finesseMax) { parts.finesse = clamp((m.finesse || 0) / m.finesseMax * 100); pillars.finesse = parts.finesse; overall = overall * 0.8 + parts.finesse * 0.2; }
+  overall = Math.round(overall);
   return { overall, parts, pillars };
 }
 
 /** One specific, actionable line from the rep timeline and pillars. */
 function coaching(m, pillars, durs) {
+  if (m.finesseMax && (m.finesse || 0) < m.finesseMax) return `Line of Nick on ${m.finesse || 0} of ${m.finesseMax} reps. Pull the rope tight between your hands every rep for a better finesse score!`;
   if (durs.length >= 3) {
     const sorted = [...durs].sort((a, b) => a - b), med = sorted[Math.floor(sorted.length / 2)];
     const worst = durs.indexOf(Math.max(...durs));
@@ -59,7 +63,7 @@ export function showScoreCard(m, { onRetry, onDrills, onHome }) {
   const res = store.recordRun({ stars, variant: m.variant || undefined,
     drill_id: m.drillId, drill_name: m.drillName, level: m.level, hand: m.hand, mode: m.mode, overall_score: overall,
     time_seconds: +m.time.toFixed(2), errors: m.errors, misses: m.misses || 0, path_length: +m.pathLength.toFixed(2),
-    dimensionless_jerk: +m.dimensionlessJerk.toFixed(2), snap_count: m.snapCount,
+    dimensionless_jerk: +m.dimensionlessJerk.toFixed(2), snap_count: m.snapCount, ...(m.finesseMax ? { finesse: m.finesse || 0 } : {}),
   });
   const moments = afterRun(store.data.runs.at(-1), { beatGhost });
   const after = snapshot();
@@ -96,7 +100,7 @@ export function showScoreCard(m, { onRetry, onDrills, onHome }) {
     starRow,
     h('div', { class: 'dbf-buddy' }, scout(stars === 3 ? 'cheer' : 'happy', { size: 56 }), h('div', {}, h('b', {}, highlight), h('div', { class: 't-dim' }, coaching(m, pillars, durs)))),
     ['pea-drop', 'triangle-transfer'].includes(m.drillId) ? h('div', { class: 'tg-time' }, h('span', { class: 't-over' }, 'Top Gun corrected time'), h('b', { class: 't-num' }, fmtTime(m.time + 5 * m.errors)), h('span', { class: 't-faint' }, `${fmtTime(m.time)} + 5 s for each bump · lower is better`)) : null,
-    h('div', { class: 'pillars' }, pill('Speed', pillars.speed), pill('Accuracy', pillars.precision), pill('Smooth hands', pillars.control)),
+    h('div', { class: 'pillars' }, pill('Speed', pillars.speed), pill('Accuracy', pillars.precision), pill('Smooth hands', pillars.control), m.finesseMax ? pill(`Finesse · Line of Nick ${m.finesse || 0}/${m.finesseMax}`, pillars.finesse) : null),
     timeline ? h('div', {}, h('div', { class: 't-over', style: { margin: '14px 0 6px' } }, 'Rep timeline'), timeline) : null,
     coinsRow,
     h('details', { class: 'clin' }, h('summary', {}, 'For grown-ups'),

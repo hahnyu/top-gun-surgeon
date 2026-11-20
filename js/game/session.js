@@ -222,6 +222,26 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   listeners.tip = (d) => { if (phase === 'running' && !(tipCool > performance.now())) { tipCool = performance.now() + 1500; callout(d?.text || '', 'tip'); } };
   let tipCool = 0;
   listeners.handoff = () => { sfx('tick2'); haptic(10); };
+  // Cobra: "Line of Nick" — the rope pulled tight between two reds. An anime-style impact frame:
+  // a split-second freeze, an inverted ink flash with speed lines, and the call-out on the rope.
+  listeners.nick = (d) => {
+    if (phase !== 'running' && !school) return;
+    const calm = !!store.settings.reduceMotion;
+    const rect = canvasHost.getBoundingClientRect(), p = d.pos.clone().project(vp.camera);
+    const x = Math.max(90, Math.min(rect.width - 90, (p.x + 1) / 2 * rect.width)), y = Math.max(70, Math.min(rect.height - 40, (1 - p.y) / 2 * rect.height - 34));
+    const el = h('div', { class: 'impact' + (calm ? ' calm' : '') },
+      calm ? null : h('div', { class: 'im-ink' }), calm ? null : h('div', { class: 'im-lines' }),
+      h('div', { class: 'im-text' }, h('b', {}, 'LINE OF NICK!'), h('small', {}, `${d.count} / ${d.max}`)));
+    el.style.setProperty('--x', x + 'px'); el.style.setProperty('--y', y + 'px');
+    root.append(el); setTimeout(() => el.remove(), 1300);
+    if (!calm) {
+      canvasHost.classList.add('impact-frame'); setTimeout(() => canvasHost.classList.remove('impact-frame'), 110);
+      const ts = timeScale; timeScale = 0; setTimeout(() => { if (timeScale === 0) timeScale = ts || 1; }, 140); // hit-stop
+      fx.shake(0.14);
+    }
+    sfx('whoosh'); setTimeout(() => sfx('chime', 6), 120); haptic([60, 20, 30]);
+    if (d.a && d.b) { fx.sparks(d.a); fx.sparks(d.b); }
+  };
   listeners.miss = (d) => { if (phase === 'running') { synth('drop'); callout('Miss — rolled off', 'bad'); if (d?.pos) fx.float(d.pos, 'MISS', 'bad'); haptic(30); combo = 0; } };
   listeners.slip = () => { if (phase === 'running') callout('Slipped off!', 'bad'); };
   listeners.start = () => { if (phase === 'armed') begin(); };
@@ -248,7 +268,7 @@ export function mountGame(container, { drillId, level, hand, mode, variant: vPar
   const GOAL = {
     'pea-drop': 'Drop 10 peas into the cup.',
     'triangle-transfer': 'Hook the triangle and fly it to the landing circle. 5 times!',
-    'cobra-rope': 'Grab every red band in order — take turns with each hand.',
+    'cobra-rope': 'Grab every red band in order, taking turns. Pull it tight each rep: Line of Nick!',
     'cylinder-transfer': 'Move each cylinder across, passing it hand to hand in mid-air.',
     suturing: 'Drive the needle across the cut. Practice as long as you like.',
   };

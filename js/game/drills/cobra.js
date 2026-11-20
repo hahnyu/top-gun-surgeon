@@ -58,7 +58,7 @@ export class CobraDrill extends BaseDrill {
     };
     this.L = mk('L', -1); this.R = mk('R', 1);
     this.tools = [this.L, this.R];
-    this.k = 0; this.grasped = 0; this.crossLatch = false;
+    this.k = 0; this.grasped = 0; this.crossLatch = false; this.nicks = new Set(); this.tautT = 0;
     this.syncRope();
   }
   resetRope() {
@@ -76,7 +76,7 @@ export class CobraDrill extends BaseDrill {
   }
   reset() {
     this.errors = 0; this.strikes = 0; this.success = 0; this.complete = false; this.started = false; this.failed = false; this.t = 0;
-    this.k = 0; this.grasped = 0; this.crossLatch = false; this._errCool = 0;
+    this.k = 0; this.grasped = 0; this.crossLatch = false; this._errCool = 0; this.nicks = new Set(); this.tautT = 0;
     this.resetRope();
     for (const t of this.tools) { t.reset(); t.node = -1; t.last = 0; }
   }
@@ -86,7 +86,7 @@ export class CobraDrill extends BaseDrill {
   get expected() { return this.steps[Math.min(this.k, this.steps.length - 1)]; }
   get frontier() { return this.expected[1]; }
   hud() { return { errors: this.strikes, reps: this.success, target: NRED, strikes: this.strikes }; }
-  final() { return { errors: this.strikes, misses: 0, success: this.success, target: NRED }; }
+  final() { return { errors: this.strikes, misses: 0, success: this.success, target: NRED, finesse: this.nicks.size, finesseMax: NRED - 1 }; }
   status() {
     if (this.complete) return 'Rope run complete';
     const [h, r] = this.expected;
@@ -200,7 +200,24 @@ export class CobraDrill extends BaseDrill {
       if (!crossed) this.crossLatch = false;
     }
     this.simulate(dt);
+    this.lineOfNick(dt);
     this.syncRope();
+  }
+  /** "Line of Nick": with one hand on each of two neighbouring red bands, pull the rope between them
+   *  straight and tight (how a surgeon measures a length of bowel). Counts once per pair of bands. */
+  lineOfNick(dt) {
+    const a = this.L.node, b = this.R.node;
+    if (!this.started || this.complete || this.failed || a < 0 || b < 0 || a === b) { this.tautT = 0; return; }
+    const ra = this.region[a], rb = this.region[b];
+    if (ra <= 0 || rb <= 0 || Math.abs(ra - rb) !== 1) { this.tautT = 0; return; }
+    const key = Math.min(ra, rb);
+    const L = Math.abs(b - a) * SEG, D = this.P[a].distanceTo(this.P[b]);
+    this.tautT = D / L > 0.95 ? this.tautT + dt : 0;
+    if (this.tautT > 0.12 && !this.nicks.has(key)) {
+      this.nicks.add(key);
+      const mid = this.P[a].clone().add(this.P[b]).multiplyScalar(0.5);
+      this.emit('nick', { pos: mid, count: this.nicks.size, max: NRED - 1, a: this.P[a].clone(), b: this.P[b].clone() });
+    }
   }
   simulate(dt) {
     const P = this.P, Pp = this.Pp, n = this.f;
@@ -212,15 +229,20 @@ export class CobraDrill extends BaseDrill {
       for (let i = 0; i < this.f - 6; i++) if (this.region[i] === er) { have = true; break; }
       if (!have) { const i = this.f; P[i].copy(this.G); Pp[i].copy(this.G); this.f++; }
     }
+    // nothing red left in the coil (last rep): let the blue tail come out so it isn't held down at the guide
+    if (this.started && this.f < this.N) {
+      let red = false; for (let i = this.f; i < this.N; i++) if (this.region[i] > 0) { red = true; break; }
+      if (!red) { const i = this.f; P[i].copy(this.G); Pp[i].copy(this.G); this.f++; }
+    }
     // a held node pulled further from the guide than the rope between them allows → pay out rope
     const held = [this.L.node, this.R.node].filter((i) => i >= 0);
     let guard = 0;
     while (this.f < this.N && guard++ < 4 && held.some((i) => P[i].distanceTo(this.G) > (this.f - 1 - i) * SEG * 0.96)) {
       const i = this.f; P[i].copy(this.G); Pp[i].copy(this.G); this.f++;
     }
-    const f = this.f;
+    const f = this.f, tail = f < this.N; // all rope out: the far (blue) end hangs free
     const g = -9.8 * dt * dt, damp = 0.985;
-    for (let i = 0; i < f - 1; i++) {
+    for (let i = 0; i < (tail ? f - 1 : f); i++) {
       const p = P[i], q = Pp[i];
       const vx = (p.x - q.x) * damp, vy = (p.y - q.y) * damp, vz = (p.z - q.z) * damp;
       q.copy(p); p.x += vx; p.y += vy + g; p.z += vz;
@@ -232,7 +254,7 @@ export class CobraDrill extends BaseDrill {
         const a = P[i], b = P[i + 1];
         const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z; const d = Math.hypot(dx, dy, dz) || 1e-6;
         const diff = (d - SEG) / d;
-        const wa = (i === pinL || i === pinR) ? 0 : 1, wb = (i + 1 === pinL || i + 1 === pinR || i + 1 === f - 1) ? 0 : 1;
+        const wa = (i === pinL || i === pinR) ? 0 : 1, wb = (i + 1 === pinL || i + 1 === pinR || (tail && i + 1 === f - 1)) ? 0 : 1;
         const s = wa + wb; if (!s) continue;
         a.x += dx * diff * wa / s; a.y += dy * diff * wa / s; a.z += dz * diff * wa / s;
         b.x -= dx * diff * wb / s; b.y -= dy * diff * wb / s; b.z -= dz * diff * wb / s;
@@ -244,7 +266,7 @@ export class CobraDrill extends BaseDrill {
       }
       if (pinL >= 0) P[pinL].copy(this.L.tip);
       if (pinR >= 0) P[pinR].copy(this.R.tip);
-      P[f - 1].copy(this.G);
+      if (tail) P[f - 1].copy(this.G);
       // instruments are solid: push rope out of each shaft (from the jaws back toward the port)
       if (it % 3 === 2) for (const t of this.tools) {
         const ax = t.tip, dir = t.dir, rr = 0.065 + ROPE_R;
@@ -257,7 +279,7 @@ export class CobraDrill extends BaseDrill {
           if (d < rr && d > 1e-5) { const k = (rr - d) / d; p.x += ox * k; p.y += oy * k; p.z += oz * k; }
         }
       }
-      for (let i = 0; i < f - 1; i++) {
+      for (let i = 0; i < (tail ? f - 1 : f); i++) {
         const p = P[i];
         if (p.y < ROPE_R) { p.y = ROPE_R; const q = Pp[i]; q.x += (p.x - q.x) * 0.4; q.z += (p.z - q.z) * 0.4; }
       }
@@ -277,7 +299,7 @@ export class CobraDrill extends BaseDrill {
       }
     }
     // the guide funnel: rope near it sits above the coil
-    for (let i = Math.max(0, f - 4); i < f - 1; i++) if (P[i].y < GUIDE_Y) P[i].y = GUIDE_Y;
+    if (tail) for (let i = Math.max(0, f - 4); i < f - 1; i++) if (P[i].y < GUIDE_Y) P[i].y = GUIDE_Y;
   }
   colorFor(i) {
     const r = this.region[i], c = this.colors;
