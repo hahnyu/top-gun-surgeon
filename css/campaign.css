@@ -16,14 +16,70 @@
 /* ---------- map page ---------- */
 .map-page { max-width: 560px; margin: 0 auto; height: 100%; display: flex; flex-direction: column; gap: 10px; }
 .map-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.map-scroll { flex: 1; min-height: 0; overflow-y: auto; border: var(--line) solid var(--ink); border-radius: 18px; box-shadow: var(--shadow); background: #5ec8f2; overscroll-behavior: contain; }
-.map { position: relative; width: 100%; }
+.map-scroll { flex: 1; min-height: 0; overflow-y: auto; border: var(--line) solid var(--ink); border-radius: 18px; box-shadow: var(--shadow); background: #2f9fd6; overscroll-behavior: contain; }
+.map { position: relative; width: 100%; overflow: hidden; }
 .map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.map-svg .wave { fill: none; stroke: #bdeeff; stroke-width: 2; stroke-linecap: round; opacity: 0.8; }
-.map-svg .isl-sand { fill: var(--paper-3); stroke: var(--ink); stroke-width: 3; }
-.map-svg .isl-grass { stroke: rgba(11, 20, 48, 0.35); stroke-width: 2; }
-.map-svg .isl-grass.c0 { fill: #8fe3a8; } .map-svg .isl-grass.c1 { fill: #7fd7b8; } .map-svg .isl-grass.c2 { fill: #b5d97a; } .map-svg .isl-grass.c3 { fill: #d9cfb8; }
+.map-svg .wave { fill: none; stroke: #c9f2ff; stroke-width: 1.8; stroke-linecap: round; opacity: 0.7; }
+.map-svg .shallow { fill: #8fe2f7; }
+.map-svg .foam { fill: none; stroke: #ffffff; stroke-width: 3; stroke-dasharray: 10 7; stroke-linecap: round; opacity: 0.85; }
+.map-svg .sand { fill: #f8e3b0; stroke: var(--ink); stroke-width: 3; }
+.map-svg .grass { stroke: rgba(11, 20, 48, 0.3); stroke-width: 2; }
+.map-svg .grass.g0 { fill: #8fe3a8; } .map-svg .grass.g1 { fill: #7fd7b8; } .map-svg .grass.g2 { fill: #b5d97a; } .map-svg .grass.g3 { fill: #cfd9b4; }
+.map-svg .grass-in { stroke: none; opacity: 0.55; }
+.map-svg .grass-in.g0 { fill: #a6ecbb; } .map-svg .grass-in.g1 { fill: #6cc8a5; } .map-svg .grass-in.g2 { fill: #a3cc64; } .map-svg .grass-in.g3 { fill: #e2e8d2; }
+.map-svg .route-bed { fill: none; stroke: rgba(11, 20, 48, 0.28); stroke-width: 9; stroke-linecap: round; }
 .map-svg .route { fill: none; stroke: #fffdf6; stroke-width: 4; stroke-dasharray: 2 10; stroke-linecap: round; }
+/* scenery */
+.map-svg .sh { fill: rgba(11, 20, 48, 0.2); }
+.map-svg [class] { stroke-linejoin: round; stroke-linecap: round; }
+.map-svg .trunk { fill: #8a5a3b; stroke: var(--ink); stroke-width: 1.5; }
+.map-svg .pine { fill: #2f9e6a; stroke: var(--ink); stroke-width: 2; }
+.map-svg .leaf { fill: #49b86f; stroke: var(--ink); stroke-width: 2; }
+.map-svg .leaf-hl { fill: #7fd99a; }
+.map-svg .hl { fill: none; stroke: #7fd99a; stroke-width: 2; }
+.map-svg .palm-trunk { fill: none; stroke: #8a5a3b; stroke-width: 3.2; }
+.map-svg .palm { fill: #3fbf72; stroke: var(--ink); stroke-width: 1.6; }
+.map-svg .coco { fill: #6b3f22; }
+.map-svg .rock { fill: #9aa6b8; stroke: var(--ink); stroke-width: 2; } .map-svg .rock-hl { fill: #c9d3de; }
+.map-svg .hangar { fill: #dfe5ec; stroke: var(--ink); stroke-width: 2.2; }
+.map-svg .rib { fill: none; stroke: rgba(11, 20, 48, 0.35); stroke-width: 1.4; }
+.map-svg .door { fill: #24345f; stroke: var(--ink); stroke-width: 2; }
+.map-svg .door-l { fill: none; stroke: #4cc9ff; stroke-width: 1.2; opacity: 0.6; }
+.map-svg .decal { font-family: var(--f-disp); font-size: 8px; fill: var(--orange); text-anchor: middle; stroke: none; }
+.map-svg .tower { fill: #fffdf6; stroke: var(--ink); stroke-width: 2; }
+.map-svg .tower-cap { fill: var(--tomato); stroke: var(--ink); stroke-width: 2; }
+.map-svg .glass { fill: #4cc9ff; stroke: var(--ink); stroke-width: 2; }
+.map-svg .ant { fill: none; stroke: var(--ink); stroke-width: 1.8; }
+.map-svg .beacon { fill: var(--tomato); }
+.map-svg .sock { fill: var(--orange); stroke: var(--ink); stroke-width: 1.5; } .map-svg .sock-l { stroke: #fffdf6; stroke-width: 2; }
+.map-svg .tank { fill: #fffdf6; stroke: var(--ink); stroke-width: 2; } .map-svg .tank-top { fill: #c9d3de; stroke: var(--ink); stroke-width: 2; }
+.map-svg .lh { fill: #fffdf6; stroke: var(--ink); stroke-width: 2; } .map-svg .lh-band { fill: var(--tomato); stroke: var(--ink); stroke-width: 1.6; }
+.map-svg .beam { fill: rgba(255, 210, 63, 0.45); stroke: none; }
+.map-svg .dome { fill: #fffdf6; stroke: var(--ink); stroke-width: 2; }
+.map-svg .flagc { fill: var(--tomato); stroke: var(--ink); stroke-width: 1.5; }
+.map-svg .tent { fill: var(--sun); stroke: var(--ink); stroke-width: 2; }
+.map-svg .umb { fill: var(--tomato); stroke: var(--ink); stroke-width: 1.6; } .map-svg .umb-l { stroke: #fffdf6; stroke-width: 1.6; }
+.map-svg .mtn { fill: #8b97ab; stroke: var(--ink); stroke-width: 2.4; } .map-svg .snow { fill: #ffffff; stroke: var(--ink); stroke-width: 1.6; }
+.map-svg .pond { fill: #4cc9ff; stroke: var(--ink); stroke-width: 2.2; } .map-svg .pond-hl { fill: none; stroke: #c9f2ff; stroke-width: 2; }
+.map-svg .apron { fill: #b9c3cf; stroke: var(--ink); stroke-width: 2; }
+.map-svg .rw { fill: #4a5268; }
+.map-svg .rw-c { stroke: #fffdf6; stroke-width: 2; } .map-svg .rw-t { stroke: #fffdf6; stroke-width: 1.6; }
+.map-svg .rw-n { font-family: var(--f-disp); font-size: 7px; fill: #fffdf6; text-anchor: middle; }
+.map-svg .jet { fill: #fffdf6; stroke: var(--ink); stroke-width: 1.6; }
+.map-svg .hull { fill: #fffdf6; stroke: var(--ink); stroke-width: 1.8; }
+.map-svg .sail { fill: #fffdf6; stroke: var(--ink); stroke-width: 1.6; } .map-svg .sail2 { fill: var(--sky); stroke: var(--ink); stroke-width: 1.4; }
+.map-svg .wake { fill: none; stroke: #ffffff; stroke-width: 1.6; opacity: 0.8; }
+.map-svg .boat { animation: boat-bob 3.2s ease-in-out infinite; animation-delay: calc(var(--d) * -1); transform-box: fill-box; }
+.map-svg .fog { fill: #f4f8fb; }
+.map-svg .fog .fog-sh { fill: rgba(11, 20, 48, 0.18); }
+.map-svg .fog-hl { fill: none; stroke: #dbe4ec; stroke-width: 3; }
+.map-svg .cloud { animation: cloud-drift var(--d) linear infinite; animation-delay: var(--o); }
+.map-svg .cloud-b { fill: #ffffff; stroke: rgba(11, 20, 48, 0.25); stroke-width: 1.5; opacity: 0.92; }
+.map-svg .cloud-sh { fill: rgba(11, 20, 48, 0.12); }
+@keyframes boat-bob { 50% { translate: 0 -2px; } }
+@keyframes cloud-drift { from { translate: -480px 0; } to { translate: 480px 0; } }
+@media (prefers-reduced-motion: reduce) { .map-svg .boat, .map-svg .cloud { animation: none; } }
+.isl-sign.locked { background: #e4e9ef; display: flex; gap: 5px; align-items: center; } .isl-sign.locked svg.ic { width: 14px; height: 14px; }
 .isl-sign { position: absolute; transform: translate(-50%, -50%) rotate(-2deg); font-family: var(--f-disp); font-size: 13px; background: var(--paper); border: var(--line) solid var(--ink); border-radius: 8px; box-shadow: 0 3px 0 var(--ink); padding: 3px 10px; white-space: nowrap; pointer-events: none; }
 .base-node { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink); -webkit-tap-highlight-color: transparent; }
 .base { position: relative; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: var(--cf, var(--paper)); border: var(--line) solid var(--ink); box-shadow: 0 5px 0 var(--ink); transition: transform 0.12s; }

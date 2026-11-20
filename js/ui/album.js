@@ -8,6 +8,7 @@ import { DRILL_NAMES, nice, BUMPS_OK, STAR_SCORE } from '../progress.js';
 import { RULES, FACTS, rulePic } from '../rules.js';
 import { NODES, ISLANDS, mapState, currentNode, VARIANTS, PAR, STICKERS, hasSticker, syncStickers, patchFor, trackState, trackReward, TRACK_EVERY, dailyState, ghostFor } from '../campaign.js';
 import { scout } from './buddy.js';
+import { mapArt } from './mapart.js';
 
 // ---------------------------------------------------------------- base emblems (40×40, sticker style)
 const EMB = {
@@ -43,37 +44,31 @@ export function openBase(node, { fly, school }) {
 }
 
 // ---------------------------------------------------------------- campaign map page
-const W = 400, STEP = 112, ISL_GAP = 70;
+const W = 400, STEP = 112, ISL_GAP = 150;
 function layout() {
   // bottom-to-top: Beginner Bay at the bottom, Top Gun Peak at the top (you fly upward)
-  const pts = NODES.map((n, i) => ({ x: 200 + Math.sin(i * 1.15 + 0.4) * 118, y: i * STEP + n.island * ISL_GAP }));
-  const H = pts[pts.length - 1].y + 220;
-  pts.forEach((p) => (p.y = H - 110 - p.y));
+  const pts = NODES.map((n, i) => ({ x: 200 + Math.sin(i * 1.15 + 0.4) * 112, y: i * STEP + n.island * ISL_GAP }));
+  const H = pts[pts.length - 1].y + 260;
+  pts.forEach((p) => (p.y = H - 130 - p.y));
   return { pts, H };
-}
-function blob(cx, cy, rx, ry, seed) {
-  const n = 14, pts = [];
-  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, w = 1 + 0.08 * Math.sin(i * 2.3 + seed) + 0.06 * Math.cos(i * 3.7 + seed * 2); pts.push([cx + Math.cos(a) * rx * w, cy + Math.sin(a) * ry * w]); }
-  let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-  for (let i = 0; i < n; i++) { const p = pts[(i + 1) % n], q = pts[(i + 2) % n]; d += ` Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${((p[0] + q[0]) / 2).toFixed(1)} ${((p[1] + q[1]) / 2).toFixed(1)}`; }
-  return d + 'Z';
 }
 export function mapPage(el, { fly, school }) {
   const st = mapState(), cur = currentNode(), { pts, H } = layout();
-  let svg = `<svg class="map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`;
-  for (let k = 0; k < 40; k++) { const x = (k * 97) % W, y = (k * 211) % H; svg += `<path class="wave" d="M${x} ${y}q6-5 12 0t12 0"/>`; }
-  ISLANDS.forEach((isl, k) => {
-    const ip = pts.filter((_, i) => NODES[i].island === k);
-    const ys = ip.map((p) => p.y), cy = (Math.min(...ys) + Math.max(...ys)) / 2, ry = (Math.max(...ys) - Math.min(...ys)) / 2 + 80;
-    svg += `<path class="isl-sand" d="${blob(200, cy, 190, ry, k * 1.7)}"/><path class="isl-grass c${k}" d="${blob(200, cy, 168, ry - 22, k * 1.7 + 0.5)}"/>`;
+  const islands = ISLANDS.map((isl, k) => {
+    const ys = pts.filter((_, i) => NODES[i].island === k).map((p) => p.y);
+    return { cy: (Math.min(...ys) + Math.max(...ys)) / 2, ry: (Math.max(...ys) - Math.min(...ys)) / 2 + 84, rx: 178, open: st.find((n) => n.island === k)?.open };
   });
-  let path = `M${pts[0].x} ${pts[0].y}`;
-  for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i]; path += ` C${a.x} ${a.y - STEP * 0.45} ${b.x} ${b.y + STEP * 0.45} ${b.x} ${b.y}`; }
-  svg += `<path class="route" d="${path}"/></svg>`;
+  let path = `M${pts[0].x} ${pts[0].y}`; const samples = [];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], c1 = [a.x, a.y - STEP * 0.45], c2 = [b.x, b.y + STEP * 0.45];
+    path += ` C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${b.x} ${b.y}`;
+    for (let t = 0; t <= 1; t += 0.08) { const u = 1 - t; samples.push({ x: u * u * u * a.x + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * b.y }); }
+  }
+  const svg = `<svg class="map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${mapArt({ pts, nodes: NODES, islands, W, H, routeD: path, routeSamples: samples })}</svg>`;
   const map = h('div', { class: 'map', style: { aspectRatio: `${W} / ${H}` }, html: svg });
   ISLANDS.forEach((isl, k) => {
     const i0 = NODES.findIndex((n) => n.island === k), p = pts[i0 + 4] || pts[i0];
-    map.append(h('div', { class: 'isl-sign', style: { left: '50%', top: `${((p.y - 78) / H) * 100}%` } }, isl.name));
+    map.append(h('div', { class: 'isl-sign' + (islands[k].open ? '' : ' locked'), style: { left: '50%', top: `${((islands[k].cy - islands[k].ry + 4) / H) * 100}%` } }, islands[k].open ? null : icon('lock'), isl.name));
   });
   st.forEach((n, i) => {
     const p = pts[i], isCur = n.id === cur.id;
