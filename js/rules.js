@@ -109,7 +109,7 @@ export const LESSONS = {
   'cobra-rope': [
     { say: 'Hi, I’m Scout! The rope is like the bowel. Grab the first red band with your LEFT grasper.', rule: 'cobra-red', done: (d) => d.started },
     { say: 'Now the other hand grabs the next red band. Take turns!', rule: 'cobra-turns', done: (d) => d.k >= 2 },
-    { say: 'Now pull your hands apart until the rope between them is tight and straight — that’s a Line of Nick! Do it every rep for finesse points.', done: (d) => d.nicks?.size >= 1 },
+    { say: 'Now pull your hands apart sideways until the rope between them is tight and flat — that’s a Line of Nick! Do it every rep for finesse points.', done: (d) => d.nicks?.size >= 1 },
     { say: 'Keep going: every red, in order. Don’t skip one!', rule: 'cobra-order', done: (d) => d.k >= 4 },
     { say: 'Keep each hand on its own side — no crossing over.', rule: 'cobra-cross', done: (d) => d.k >= 6 },
     { say: 'Three wrong moves and you start again. That’s the real rule!', rule: 'cobra-strikes', wait: 3.5 },

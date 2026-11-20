@@ -204,7 +204,7 @@ export class CobraDrill extends BaseDrill {
     this.syncRope();
   }
   /** "Line of Nick": with one hand on each of two neighbouring red bands, pull the rope between them
-   *  straight and tight (how a surgeon measures a length of bowel). Counts once per pair of bands. */
+   *  roughly horizontal, straight and tight (how a surgeon measures a length of bowel). Counts once per pair of bands. */
   lineOfNick(dt) {
     const a = this.L.node, b = this.R.node;
     if (!this.started || this.complete || this.failed || a < 0 || b < 0 || a === b) { this.tautT = 0; return; }
@@ -212,7 +212,9 @@ export class CobraDrill extends BaseDrill {
     if (ra <= 0 || rb <= 0 || Math.abs(ra - rb) !== 1) { this.tautT = 0; return; }
     const key = Math.min(ra, rb);
     const L = Math.abs(b - a) * SEG, D = this.P[a].distanceTo(this.P[b]);
-    this.tautT = D / L > 0.95 ? this.tautT + dt : 0;
+    // tight AND laid out sideways (within 25° of horizontal), the way you measure bowel — not hanging straight down
+    const level = Math.abs(this.P[b].y - this.P[a].y) / Math.max(D, 1e-6) < Math.sin(25 * Math.PI / 180);
+    this.tautT = D / L > 0.95 && level ? this.tautT + dt : 0;
     if (this.tautT > 0.12 && !this.nicks.has(key)) {
       this.nicks.add(key);
       const mid = this.P[a].clone().add(this.P[b]).multiplyScalar(0.5);
