@@ -422,21 +422,15 @@ export class Tool {
       // constant radius (insertion depth); in/out changes only that radius, along the shaft.
       const rel = _t.copy(T).sub(this.port); let r = rel.length();
       if (inp.orbit) {
-        // swing the shaft about the port (radius stays the same). Pick the swing that moves the tip as
-        // close as possible to the arrow's direction on screen: two tangent axes on the sphere, a 2x2
-        // screen "Jacobian", then a damped least-squares solve — stable for any port angle, never flips.
-        const dir = _o.copy(rel).normalize(), vr = Tool.view.right, vu = Tool.view.up;
-        const e1 = _r.set(0, 1, 0).cross(dir); if (e1.lengthSq() < 1e-6) e1.set(1, 0, 0); e1.normalize(); // horizontal swing
-        const e2 = _f.copy(dir).cross(e1).normalize();                                                    // tilt up/down
-        const a = e1.dot(vr), b = e2.dot(vr), c = e1.dot(vu), d = e2.dot(vu), lam = 0.04;
-        const x = inp.orbit.x, y = inp.orbit.y;
-        // solve (J Jt + lam I) w = target, then u = Jt w
-        const m11 = a * a + b * b + lam, m12 = a * c + b * d, m22 = c * c + d * d + lam, det = m11 * m22 - m12 * m12;
-        const w1 = (m22 * x - m12 * y) / det, w2 = (m11 * y - m12 * x) / det;
-        let u1 = a * w1 + c * w2, u2 = b * w1 + d * w2;
-        const n = Math.hypot(u1, u2), want = Math.hypot(x, y);
-        if (n > want && n > 1e-6) { u1 *= want / n; u2 *= want / n; } // same speed as asked, never faster
-        rel.addScaledVector(e1, u1 * 2.0 * sm * dt).addScaledVector(e2, u2 * 2.0 * sm * dt).setLength(r);
+        // pure swing on the sphere around the port (radius = how far the grasper is in, never changes):
+        // left/right turns the shaft around the vertical axis through the port, up/down tilts the tip
+        // up or down. It follows the sphere, not the screen.
+        const dir = _o.copy(rel).normalize();
+        const side = _r.copy(dir).cross(_f.set(0, 1, 0)); // horizontal swing direction (tip goes "right" of the shaft)
+        if (side.lengthSq() < 1e-6) side.set(1, 0, 0); side.normalize();
+        const lift = _f.set(0, 1, 0).addScaledVector(dir, -dir.y); // tilt direction (tip goes up)
+        if (lift.lengthSq() < 1e-6) lift.copy(side).cross(dir); lift.normalize();
+        rel.addScaledVector(side, inp.orbit.x * 2.0 * sm * dt).addScaledVector(lift, inp.orbit.y * 2.0 * sm * dt).setLength(r);
       }
       if (inp.insert) { r = Math.max(this.minLen, Math.min(this.maxLen, r + inp.insert * 1.5 * sd * dt)); rel.setLength(r); }
       T.copy(this.port).add(rel);
