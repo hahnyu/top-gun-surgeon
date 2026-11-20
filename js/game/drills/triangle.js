@@ -12,7 +12,7 @@ const SRC_R = 0.95, TGT_R = 1.0;
 const LOOP_C = new THREE.Vector3(0, TRI.H + 0.12 + TRI.LOOP_R * 0.25, 0);
 const UPV = new THREE.Vector3(0, 1, 0);
 const REST_TOP = TRI.H + 0.12 + TRI.LOOP_R * 0.25 + TRI.LOOP_R - TRI.LOOP_TUBE; // loop's inner top when the triangle stands on the plate
-const _q2 = new THREE.Quaternion(), _n = new THREE.Vector3(), _w = new THREE.Vector3(), _a = new THREE.Vector3();
+const _qr = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _n = new THREE.Vector3(), _w = new THREE.Vector3(), _a = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _m = new THREE.Matrix4();
 const qY = (dir) => new THREE.Quaternion().setFromUnitVectors(UPV, dir.clone().normalize());
 const plain = (q) => ({ x: q.x, y: q.y, z: q.z, w: q.w });
@@ -124,6 +124,7 @@ export class TriangleDrill extends BaseDrill {
     if (slip) { playSound('jawOpen', { volume: 0.5 }); this.emit('slip'); }
   }
   resetObject() {
+    this._cp = null;
     this.detach();
     this.lifted = false; this.hookedT = 0; this.settleT = 0; this.respawnT = 0.4; this.dragDist = 0; this.dragFlag = false;
     if (!this.body) { this.obj.position.copy(this.src); this.obj.quaternion.identity(); return; }
@@ -157,11 +158,32 @@ export class TriangleDrill extends BaseDrill {
     const want = Math.min(3, ((ang - MAX) / h) * 0.15); // ease it back, never a kick
     if (cur < want) { const k = want - cur; this.body.setAngvel({ x: av.x + axis.x * k, y: av.y + axis.y * k, z: av.z + axis.z * k }, true); }
   }
+  /** Not hanging on the hook: a turning/pushing hook can nudge the triangle but never fling it (a kinematic
+   *  hook pushes with unlimited force). After every physics step, any move or turn faster than a gentle
+   *  push is pulled back to that limit; falling is left alone. */
+  calm(h = 1 / 120) {
+    const p = this.body.translation(), r = this.body.rotation();
+    if (this._cp && !this.joint) {
+      const HMAX = 1.4 * h, UP = 1.2 * h, WMAX = 3.5 * h;
+      let dx = p.x - this._cp.x, dy = p.y - this._cp.y, dz = p.z - this._cp.z, fix = false;
+      const hd = Math.hypot(dx, dz); if (hd > HMAX) { dx *= HMAX / hd; dz *= HMAX / hd; fix = true; }
+      if (dy > UP) { dy = UP; fix = true; }
+      _q2.set(r.x, r.y, r.z, r.w); const ang = this._cq.angleTo(_q2);
+      if (ang > WMAX) { _q2.copy(this._cq).slerp(_qr.set(r.x, r.y, r.z, r.w), WMAX / ang); this.body.setRotation(plain(_q2), true); fix = true; }
+      if (fix) {
+        this.body.setTranslation({ x: this._cp.x + dx, y: this._cp.y + dy, z: this._cp.z + dz }, true);
+        const v = this.body.linvel(), w = this.body.angvel(), k = 0.3;
+        this.body.setLinvel({ x: v.x * k, y: Math.min(v.y, 0.5), z: v.z * k }, true); this.body.setAngvel({ x: w.x * k, y: w.y * k, z: w.z * k }, true);
+      }
+    }
+    const q = this.body.translation(), qr = this.body.rotation();
+    this._cp = { x: q.x, y: q.y, z: q.z }; (this._cq || (this._cq = new THREE.Quaternion())).set(qr.x, qr.y, qr.z, qr.w);
+  }
   hookTouching() { return this.loopCols.some((c) => this.hookCols.some((k) => this.pw.touching(c, k))); }
   update(dt, inputs, sens) {
     this.tick(dt);
     const tool = this.tool, inp = inputs[0] || {};
-    if (this.joint && inp.rot) inp.rot *= 0.4; // turning with the triangle hanging on: slow and steady
+    if (inp.rot && (this.joint || this.hookTouching())) inp.rot *= 0.4; // turning with the triangle on the hook: slow and steady
     tool.input(inp, dt, sens);
     this.pw.step(dt, (h) => {
       tool.step(h);
@@ -169,7 +191,9 @@ export class TriangleDrill extends BaseDrill {
       tool.inst.group.matrixWorld.decompose(_v, _q, new THREE.Vector3());
       this.hookBody.setNextKinematicTranslation({ x: _v.x, y: _v.y, z: _v.z }); this.hookBody.setNextKinematicRotation(plain(_q));
       if (this.joint) this.keepThreaded(_q, h);
+      else this.calm(h);
     });
+    if (!this.joint) this.calm(1 / 120); else this._cp = null;
     this.syncObj();
     this.touchError(tool, tool.contact, 'Touched the template');
     if (this.respawnT > 0) { this.respawnT -= dt; this.obj.scale.setScalar(Math.max(0.01, 1 - Math.max(0, this.respawnT) / 0.4)); } else this.obj.scale.setScalar(1);
@@ -198,7 +222,7 @@ export class TriangleDrill extends BaseDrill {
     }
     // squeezed into the plate by the hook: pop it back onto the surface
     if (this.O.y < -0.04 && this.joint) this.detach(false);
-    if (this.O.y < -0.04 && Math.abs(this.O.x) < 3.5 && this.O.z > -2.7 && this.O.z < 4.3) { const p = this.body.translation(); this.body.setTranslation({ x: p.x, y: 0.02, z: p.z }, true); this.body.setLinvel({ x: 0, y: 0, z: 0 }, true); }
+    if (this.O.y < -0.04 && Math.abs(this.O.x) < 3.5 && this.O.z > -2.7 && this.O.z < 4.3) { const p = this.body.translation(); this.body.setTranslation({ x: p.x, y: 0.02, z: p.z }, true); this.body.setLinvel({ x: 0, y: 0, z: 0 }, true); this._cp = null; }
     if (this.O.y < -1) { this.error('Fell off the board', { force: true, pos: this.src.clone() }); this.resetObject(); }
     if (this.pending) { this.pending.t -= dt; if (this.pending.t <= 0) { const f = this.pending.fn; this.pending = null; f(); } }
     else if (this.lifted && !this.joint && this.O.y < 0.08 && speed < 0.12) {
